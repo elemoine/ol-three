@@ -25,9 +25,12 @@ import tileVS from './tileVS.glsl'
 import tileFS from './tileFS.glsl'
 import mapVS from './mapVS.glsl'
 import mapFS from './mapFS.glsl'
+import {TrackballControls} from './TrackballControls.js';
 
 
 var TileSource = function(olTileSource) {
+
+  this.needsUpdate = false;
 
   this.source = olTileSource;
   this.renderTarget = new WebGLRenderTarget();
@@ -137,6 +140,8 @@ Object.assign(TileSource.prototype, {
 
     var autoClear = renderer.autoClear;
     renderer.autoClear = false;
+
+    this.needsUpdate = false;
   
     var x, y, tile, texture, tileState, tileExtent;
     var geometry, material, mesh, scene, orthographicCamera;
@@ -145,6 +150,7 @@ Object.assign(TileSource.prototype, {
         tile = this.source.getTile(z, x, y, pixelRatio, projection);
         tileState = tile.getState();
         if (tileState != TileState.LOADED) {
+            this.needsUpdate = true;
             tile.load();
         } else if (tileState == TileState.LOADED) {
             tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
@@ -207,20 +213,40 @@ var mapWidth = mapEl.clientWidth;
 var mapHeight = mapEl.clientHeight;
 var mapSize = [mapWidth, mapHeight];
 
-var tileSource = new TileSource(new OSM());
+var osmSource = new OSM();
+var tileSource = new TileSource(osmSource);
 
 var renderer = new WebGLRenderer();
 renderer.setSize(mapWidth, mapHeight);
 mapEl.appendChild(renderer.domElement);
 
+var projectionExtent = osmSource.getProjection().getExtent();
+var aspectRatio = mapWidth / mapHeight;
+
+var resolution = 2445.98490512564;
+var rotation = 0;
+
+var camera = new OrthographicCamera(
+  projectionExtent[0], projectionExtent[2],
+  projectionExtent[1] / aspectRatio, projectionExtent[3] / aspectRatio);
+camera.position.z = 10;
+camera.position.x = 351641.3047094788;
+camera.position.y = 5826334.968589892;
+
+var controls = new TrackballControls(camera);
+controls.addEventListener('change', render);
+
 function render() {
-
-  requestAnimationFrame(render);
-
-  var center = [351641.3047094788, 5826334.968589892]
-  var resolution = 2445.98490512564;
-  var rotation = 0;
-
+  var center = [camera.position.x, camera.position.y];
   tileSource.render(renderer, center, resolution, rotation, mapSize);
+  if (tileSource.needsUpdate) {
+      requestAnimationFrame(render);
+  }
 }
+
+(function animate() {
+  requestAnimationFrame(animate);
+  controls.update();
+})();
+
 render();
