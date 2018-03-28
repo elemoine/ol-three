@@ -1,3 +1,4 @@
+// OpenLayers imports
 import olextent from 'ol/extent';
 import olmath from 'ol/math';
 import olproj from 'ol/proj';
@@ -5,6 +6,7 @@ import olsize from 'ol/size';
 import OSM from 'ol/source/osm';
 import TileState from 'ol/tilestate'
 
+// Three.js imports
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
 import {InterleavedBuffer} from 'three/src/core/InterleavedBuffer';
 import {InterleavedBufferAttribute} from 'three/src/core/InterleavedBufferAttribute';
@@ -18,6 +20,7 @@ import {Vector3} from 'three/src/math/Vector3';
 import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
 import {WebGLRenderer} from 'three/src/renderers/WebGLRenderer';
 
+// Local imports
 import tileVS from './tileVS.glsl'
 import tileFS from './tileFS.glsl'
 import mapVS from './mapVS.glsl'
@@ -25,10 +28,9 @@ import mapFS from './mapFS.glsl'
 
 
 var TileSource = function(olTileSource) {
+
   this.source = olTileSource;
-
   this.renderTarget = new WebGLRenderTarget();
-
   this.camera = new OrthographicCamera(-1, 1, 1, -1, 0, 1);
 
   var renderTileBuffer = new InterleavedBuffer(new Float32Array([
@@ -37,11 +39,33 @@ var TileSource = function(olTileSource) {
     0, 1, 0, 0,
     1, 1, 1, 0
   ]), 4);
-  this.tilePositionAttribute = new InterleavedBufferAttribute(renderTileBuffer, 2, 0, false);
-  this.tileTexCoordAttribute = new InterleavedBufferAttribute(renderTileBuffer, 2, 2, false);
+  var tilePositionAttribute = new InterleavedBufferAttribute(renderTileBuffer, 2, 0, false);
+  var tileTexCoordAttribute = new InterleavedBufferAttribute(renderTileBuffer, 2, 2, false);
+
+  this.u_tileOffset = new Float32Array(4);
+  this.tileMaterial = new RawShaderMaterial({
+    uniforms: {
+      'u_tileOffset': {value: null},
+      'u_texture': {value: null}
+    },
+    vertexShader: tileVS,
+    fragmentShader: tileFS
+  });
+
+  var tileBufferGeometry = new BufferGeometry();
+  tileBufferGeometry.setIndex([0, 1, 2, 1, 3, 2]);
+  tileBufferGeometry.addAttribute('a_position', tilePositionAttribute);
+  tileBufferGeometry.addAttribute('a_texCoord', tileTexCoordAttribute);
+
+  var tileMesh = new Mesh(tileBufferGeometry, this.tileMaterial);
+  tileMesh.frustumCulled = false;
+
+  this.tileScene = new Scene();
+  this.tileScene.add(tileMesh);
+
+  this.tileTextureCache = {};
 
   this.u_texCoordMatrix = new Matrix4();
-  this.u_projectionMatrix = new Matrix4();
   this.tmpMatrix = new Matrix4();
 
   var renderLayerBuffer = new InterleavedBuffer(new Float32Array([
@@ -50,8 +74,30 @@ var TileSource = function(olTileSource) {
     -1, 1, 0, 1,
     1, 1, 1, 1
   ]), 4);
-  this.layerPositionAttribute = new InterleavedBufferAttribute(renderLayerBuffer, 2, 0, false);
-  this.layerTexCoordAttribute = new InterleavedBufferAttribute(renderLayerBuffer, 2, 2, false);
+  var layerPositionAttribute = new InterleavedBufferAttribute(renderLayerBuffer, 2, 0, false);
+  var layerTexCoordAttribute = new InterleavedBufferAttribute(renderLayerBuffer, 2, 2, false);
+
+  this.layerMaterial = new RawShaderMaterial({
+    uniforms: {
+      'u_texCoordMatrix': {value: this.u_texCoordMatrix},
+      'u_projectionMatrix': {value: new Matrix4()},
+      'u_opacity': {value: 1.0},
+      'u_texture': {value: null}
+    },
+    vertexShader: mapVS,
+    fragmentShader: mapFS
+  });
+
+  var layerBufferGeometry = new BufferGeometry();
+  layerBufferGeometry.setIndex([0, 1, 2, 1, 3, 2]);
+  layerBufferGeometry.addAttribute('a_position', layerPositionAttribute);
+  layerBufferGeometry.addAttribute('a_texCoord', layerTexCoordAttribute);
+
+  var layerMesh = new Mesh(layerBufferGeometry, this.layerMaterial);
+  layerMesh.frustumCulled = false;
+
+  this.layerScene = new Scene();
+  this.layerScene.add(layerMesh);
 
   this.tmpSize = [0, 0];
   this.tmpExtent = olextent.createEmpty();
@@ -92,8 +138,8 @@ Object.assign(TileSource.prototype, {
     var autoClear = renderer.autoClear;
     renderer.autoClear = false;
   
-    var x, y, tile, texture, tileState, tileExtent, u_tileOffset;
-    var geometry, material, geomery, mesh, scene, orthographicCamera;
+    var x, y, tile, texture, tileState, tileExtent;
+    var geometry, material, mesh, scene, orthographicCamera;
     for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
       for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
         tile = this.source.getTile(z, x, y, pixelRatio, projection);
@@ -101,34 +147,16 @@ Object.assign(TileSource.prototype, {
         if (tileState != TileState.LOADED) {
             tile.load();
         } else if (tileState == TileState.LOADED) {
-            u_tileOffset = new Float32Array(4);
             tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
-            u_tileOffset[0] = 2 * (tileExtent[2] - tileExtent[0]) / framebufferExtentDimension;
-            u_tileOffset[1] = 2 * (tileExtent[3] - tileExtent[1]) / framebufferExtentDimension;
-            u_tileOffset[2] = 2 * (tileExtent[0] - framebufferExtent[0]) /
+            this.u_tileOffset[0] = 2 * (tileExtent[2] - tileExtent[0]) / framebufferExtentDimension;
+            this.u_tileOffset[1] = 2 * (tileExtent[3] - tileExtent[1]) / framebufferExtentDimension;
+            this.u_tileOffset[2] = 2 * (tileExtent[0] - framebufferExtent[0]) /
                 framebufferExtentDimension - 1;
-            u_tileOffset[3] = 2 * (tileExtent[1] - framebufferExtent[1]) /
+            this.u_tileOffset[3] = 2 * (tileExtent[1] - framebufferExtent[1]) /
                 framebufferExtentDimension - 1;
-            texture = new Texture(tile.getImage());
-            texture.needsUpdate = true;
-            texture.flipY = false;
-            material = new RawShaderMaterial({
-              uniforms: {
-                'u_tileOffset': {value: u_tileOffset},
-                'u_texture': {value: texture}
-              },
-              vertexShader: tileVS,
-              fragmentShader: tileFS
-            });
-            geometry = new BufferGeometry();
-            geometry.setIndex([0, 1, 2, 1, 3, 2]);
-            geometry.addAttribute('a_position', this.tilePositionAttribute);
-            geometry.addAttribute('a_texCoord', this.tileTexCoordAttribute);
-            mesh = new Mesh(geometry, material);
-            mesh.frustumCulled = false;
-            scene = new Scene();
-            scene.add(mesh);
-            renderer.render(scene, this.camera, this.renderTarget);
+            this.tileMaterial.uniforms['u_tileOffset'].value = this.u_tileOffset;
+            this.tileMaterial.uniforms['u_texture'].value = this.getTextureForTile(tile);
+            renderer.render(this.tileScene, this.camera, this.renderTarget);
         }
       }
     }
@@ -149,25 +177,22 @@ Object.assign(TileSource.prototype, {
     this.tmpMatrix.makeTranslation(-0.5, -0.5, 0.0);
     this.u_texCoordMatrix.multiply(this.tmpMatrix);
   
-    material = new RawShaderMaterial({
-      uniforms: {
-        'u_texCoordMatrix': {value: this.u_texCoordMatrix},
-        'u_projectionMatrix': {value: this.u_projectionMatrix},
-        'u_opacity': {value: 1.0},
-        'u_texture': {value: this.renderTarget.texture}
-      },
-      vertexShader: mapVS,
-      fragmentShader: mapFS
-    });
-    geometry = new BufferGeometry();
-    geometry.setIndex([0, 1, 2, 1, 3, 2]);
-    geometry.addAttribute('a_position', this.layerPositionAttribute);
-    geometry.addAttribute('a_texCoord', this.layerTexCoordAttribute);
-    mesh = new Mesh(geometry, material);
-    mesh.frustumCulled = false;
-    scene = new Scene();
-    scene.add(mesh);
-    renderer.render(scene, this.camera, undefined, true);
+    this.layerMaterial.uniforms['u_texture'].value = this.renderTarget.texture;
+
+    renderer.render(this.layerScene, this.camera, undefined, true);
+  },
+
+  getTextureForTile: function(tile) {
+    var tileKey = tile.getKey();
+    var texture;
+    if (tileKey in this.tileTextureCache) {
+      texture = this.tileTextureCache[tileKey];
+    } else {
+      this.tileTextureCache[tileKey] = texture = new Texture(tile.getImage());
+      texture.flipY = false;
+    }
+    texture.needsUpdate = true;
+    return texture;
   }
 });
 
