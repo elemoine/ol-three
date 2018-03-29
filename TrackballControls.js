@@ -23,7 +23,8 @@ var TrackballControls = function ( object, domElement ) {
 
 	this.rotateSpeed = 1.0;
 	this.zoomSpeed = 1.2;
-	this.panSpeed = 0.3;
+	this.panSpeedX = 0.3;
+	this.panSpeedY = 0.3;
 
 	this.noRotate = false;
 	this.noZoom = false;
@@ -249,7 +250,8 @@ var TrackballControls = function ( object, domElement ) {
 
 			if ( mouseChange.lengthSq() ) {
 
-				mouseChange.multiplyScalar( _eye.length() * _this.panSpeed );
+				mouseChange.x *= _eye.length() * _this.panSpeedX;
+				mouseChange.y *= _eye.length() * _this.panSpeedY;
 
 				pan.copy( _eye ).cross( _this.object.up ).setLength( mouseChange.x );
 				pan.add( objectUp.copy( _this.object.up ).setLength( mouseChange.y ) );

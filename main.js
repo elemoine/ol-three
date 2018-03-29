@@ -8,6 +8,7 @@ import TileState from 'ol/tilestate'
 
 // Three.js imports
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
+import {Color} from 'three/src/math/Color';
 import {InterleavedBuffer} from 'three/src/core/InterleavedBuffer';
 import {InterleavedBufferAttribute} from 'three/src/core/InterleavedBufferAttribute';
 import {Matrix4} from 'three/src/math/Matrix4';
@@ -140,6 +141,7 @@ Object.assign(TileSource.prototype, {
 
     var autoClear = renderer.autoClear;
     renderer.autoClear = false;
+    renderer.clearTarget(this.renderTarget, true);
 
     this.needsUpdate = false;
   
@@ -218,29 +220,39 @@ var tileSource = new TileSource(osmSource);
 
 var renderer = new WebGLRenderer();
 renderer.setSize(mapWidth, mapHeight);
+renderer.setClearColor(new Color(0xffffff));
 mapEl.appendChild(renderer.domElement);
 
 var projectionExtent = osmSource.getProjection().getExtent();
 var aspectRatio = mapWidth / mapHeight;
 
-var resolution = 2445.98490512564;
-var rotation = 0;
+var initialResolution = 2445.98490512564;
+var initialCenter = [351641.3047094788, 5826334.968589892];
 
 var camera = new OrthographicCamera(
   projectionExtent[0], projectionExtent[2],
   projectionExtent[1] / aspectRatio, projectionExtent[3] / aspectRatio);
-camera.position.z = 10;
-camera.position.x = 351641.3047094788;
-camera.position.y = 5826334.968589892;
+camera.position.z = initialResolution;
+camera.position.x = initialCenter[0];
+camera.position.y = initialCenter[1];
 
-var controls = new TrackballControls(camera);
+var controls = new TrackballControls(camera, mapEl);
+controls.panSpeedX = mapWidth;
+controls.panSpeedY = mapHeight;
+controls.zoomSpeed = 3.0;
+controls.staticMoving = true;
+controls.target.z = 0;
+controls.target.x = camera.position.x;
+controls.target.y = camera.position.y;
+controls.noRotate = true;
 controls.addEventListener('change', render);
 
 function render() {
   var center = [camera.position.x, camera.position.y];
-  tileSource.render(renderer, center, resolution, rotation, mapSize);
+  var resolution = camera.position.z;
+  tileSource.render(renderer, center, resolution, 0, mapSize);
   if (tileSource.needsUpdate) {
-      requestAnimationFrame(render);
+    requestAnimationFrame(render);
   }
 }
 
