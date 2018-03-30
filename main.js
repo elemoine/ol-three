@@ -261,14 +261,14 @@ camera.position.x = initialCenter[0];
 camera.position.y = initialCenter[1];
 
 var controls = new TrackballControls(camera, mapEl);
+controls.noRotate = true;
 controls.panSpeedX = mapWidth;
 controls.panSpeedY = mapHeight;
-controls.zoomSpeed = 3.0;
+controls.zoomSpeed = 4.0;
 controls.staticMoving = true;
 controls.target.z = 0;
 controls.target.x = camera.position.x;
 controls.target.y = camera.position.y;
-controls.noRotate = true;
 controls.addEventListener('change', render);
 
 function render() {
