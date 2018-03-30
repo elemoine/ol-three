@@ -202,8 +202,8 @@ Object.assign(TileSource.prototype, {
           (framebufferExtent[3] - framebufferExtent[1]),
       0);
     this.tmpMatrix.makeScale(
-      mapWidth * resolution / (framebufferExtent[2] - framebufferExtent[0]),
-      mapHeight * resolution / (framebufferExtent[3] - framebufferExtent[1]),
+      size[0] * resolution / (framebufferExtent[2] - framebufferExtent[0]),
+      size[1] * resolution / (framebufferExtent[3] - framebufferExtent[1]),
       1.0);
     this.u_texCoordMatrix.multiply(this.tmpMatrix);
     this.tmpMatrix.makeTranslation(-0.5, -0.5, 0.0);
