@@ -105,6 +105,10 @@ var TileSource = function(olTileSource) {
 
   this.tmpSize = [0, 0];
   this.tmpExtent = olextent.createEmpty();
+
+  this.renderedTileRange = null;
+  this.renderedFramebufferExtent = null;
+  this.renderedRevision = -1;
 };
 
 Object.assign(TileSource.prototype, {
@@ -121,52 +125,72 @@ Object.assign(TileSource.prototype, {
     var tilePixelResolution = tileResolution / pixelRatio;
     var tileGutter = this.source.getTilePixelRatio(pixelRatio) * this.source.getGutter(projection);
     var tileRange = tileGrid.getTileRangeForExtentAndZ(extent, z);
-    var tileRangeSize = tileRange.getSize();
-    var maxDimension = Math.max(
-      tileRangeSize[0] * tilePixelSize[0],
-      tileRangeSize[1] * tilePixelSize[1]);
-    var framebufferDimension = olmath.roundUpToPowerOfTwo(maxDimension);
-    var framebufferExtentDimension = tilePixelResolution * framebufferDimension;
-    var origin = tileGrid.getOrigin(z);
-    var minX = origin[0] + tileRange.minX * tilePixelSize[0] * tilePixelResolution;
-    var minY = origin[1] + tileRange.minY * tilePixelSize[1] * tilePixelResolution;
-    var framebufferExtent = [
-      minX, minY,
-      minX + framebufferExtentDimension, minY + framebufferExtentDimension
-    ];
-  
-    if (this.renderTarget.width != framebufferDimension) {
-        this.renderTarget.setSize(framebufferDimension, framebufferDimension);
-    }
 
-    var autoClear = renderer.autoClear;
-    renderer.autoClear = false;
-    renderer.clearTarget(this.renderTarget, true);
+    var framebufferExtent;
+    if (this.renderedTileRange &&
+        this.renderedTileRange.equals(tileRange) &&
+        this.renderedRevision == this.source.getRevision()) {
+        framebufferExtent = this.renderedFramebufferExtent;
+    } else {
+      var tileRangeSize = tileRange.getSize();
+      var maxDimension = Math.max(
+        tileRangeSize[0] * tilePixelSize[0],
+        tileRangeSize[1] * tilePixelSize[1]);
+      var framebufferDimension = olmath.roundUpToPowerOfTwo(maxDimension);
+      var framebufferExtentDimension = tilePixelResolution * framebufferDimension;
+      var origin = tileGrid.getOrigin(z);
+      var minX = origin[0] + tileRange.minX * tilePixelSize[0] * tilePixelResolution;
+      var minY = origin[1] + tileRange.minY * tilePixelSize[1] * tilePixelResolution;
+      var framebufferExtent = [
+        minX, minY,
+        minX + framebufferExtentDimension, minY + framebufferExtentDimension
+      ];
 
-    this.needsUpdate = false;
-  
-    var x, y, tile, texture, tileState, tileExtent;
-    var geometry, material, mesh, scene, orthographicCamera;
-    for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
-      for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
-        tile = this.source.getTile(z, x, y, pixelRatio, projection);
-        tileState = tile.getState();
-        if (tileState != TileState.LOADED) {
-            this.needsUpdate = true;
-            tile.load();
-        } else if (tileState == TileState.LOADED) {
-            tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
-            this.u_tileOffset[0] = 2 * (tileExtent[2] - tileExtent[0]) / framebufferExtentDimension;
-            this.u_tileOffset[1] = 2 * (tileExtent[3] - tileExtent[1]) / framebufferExtentDimension;
-            this.u_tileOffset[2] = 2 * (tileExtent[0] - framebufferExtent[0]) /
-                framebufferExtentDimension - 1;
-            this.u_tileOffset[3] = 2 * (tileExtent[1] - framebufferExtent[1]) /
-                framebufferExtentDimension - 1;
-            this.tileMaterial.uniforms['u_tileOffset'].value = this.u_tileOffset;
-            this.tileMaterial.uniforms['u_texture'].value = this.getTextureForTile(tile);
-            renderer.render(this.tileScene, this.camera, this.renderTarget);
+      if (this.renderTarget.width != framebufferDimension) {
+          this.renderTarget.setSize(framebufferDimension, framebufferDimension);
+      }
+
+      var autoClear = renderer.autoClear;
+      renderer.autoClear = false;
+      renderer.clearTarget(this.renderTarget, true);
+
+      var allTilesLoaded = true;
+
+      var x, y, tile, texture, tileState, tileExtent;
+      var geometry, material, mesh, scene, orthographicCamera;
+      for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
+        for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
+          tile = this.source.getTile(z, x, y, pixelRatio, projection);
+          tileState = tile.getState();
+          if (tileState != TileState.LOADED) {
+              allTilesLoaded = false;
+              tile.load();
+          } else if (tileState == TileState.LOADED) {
+              tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
+              this.u_tileOffset[0] = 2 * (tileExtent[2] - tileExtent[0]) / framebufferExtentDimension;
+              this.u_tileOffset[1] = 2 * (tileExtent[3] - tileExtent[1]) / framebufferExtentDimension;
+              this.u_tileOffset[2] = 2 * (tileExtent[0] - framebufferExtent[0]) /
+                  framebufferExtentDimension - 1;
+              this.u_tileOffset[3] = 2 * (tileExtent[1] - framebufferExtent[1]) /
+                  framebufferExtentDimension - 1;
+              this.tileMaterial.uniforms['u_tileOffset'].value = this.u_tileOffset;
+              this.tileMaterial.uniforms['u_texture'].value = this.getTextureForTile(tile);
+              renderer.render(this.tileScene, this.camera, this.renderTarget);
+          }
         }
       }
+
+      if (allTilesLoaded) {
+        this.renderedTileRange = tileRange;
+        this.renderedFramebufferExtent = framebufferExtent;
+        this.renderedRevision = this.source.getRevision();
+      } else {
+        this.renderedTileRange = null;
+        this.renderedFramebufferExtent = null;
+        this.renderedRevision = -1;
+      }
+
+      this.needsUpdate = !allTilesLoaded;
     }
 
     renderer.autoClear = autoClear;
