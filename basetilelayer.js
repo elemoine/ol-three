@@ -56,13 +56,14 @@ Object.assign(BaseTileLayer.prototype, {
   updateTileMesh: function(mesh) {
   },
 
-  update: function(renderer, camera, size) {
-    var center = [camera.position.x, camera.position.y];
+  update: function(renderer, target, size, camera) {
+    var center = [target.x, target.y];
     let ratio = size[1] / size[0]
     let rotation = 0
 
     // scale is computed based on camera position
-    let scale = camera.position.z * Math.tan(camera.fov / 360 * Math.PI) * 2
+    let dist = target.distanceTo(camera.position);
+    let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2 * 1.5
     var resolution = scale / size[1];
 
     var projection = this.source.getProjection();

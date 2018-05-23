@@ -71,19 +71,13 @@ var aspectRatio = mapWidth / mapHeight;
 
 var initialCenter = [595641.3047094788, 5626334.968589892];
 
-var camera = new PerspectiveCamera(50, aspectRatio, 1, 10000000);
+var camera = new PerspectiveCamera(50, aspectRatio, 1, 100000000);
 camera.position.z = 500000;
 camera.position.x = initialCenter[0];
 camera.position.y = initialCenter[1];
 
-// tmp
-// camera.position.z = 100;
-// camera.position.x = 0;
-// camera.position.y = 0;
-
-
 var controls = new TrackballControls(camera, mapEl);
-controls.noRotate = true;
+// controls.noRotate = true;
 controls.panSpeedX = 0.3;
 controls.panSpeedY = 0.3;
 controls.zoomSpeed = 4.0;
@@ -97,6 +91,6 @@ controls.target.y = camera.position.y;
   controls.update();
 
   renderer.clear();
-  osmLayer.update(renderer, camera, mapSize);
+  osmLayer.update(renderer, controls.target, mapSize, camera);
   renderer.render(scene, camera, undefined);
 })();
