@@ -43,8 +43,9 @@ Object.assign(RasterTileLayer.prototype, {
 
     this.tileTextureCache = {};
 
-    const material = new MeshBasicMaterial({ color: 0xffffff })
+    const material = new MeshBasicMaterial({ color: 0xffffff, transparent: true })
     material.map = this.getTextureForTile(tile);
+    material.opacity = 0;
 
     const mesh = new Mesh(this.geometry, material);
 
@@ -53,6 +54,11 @@ Object.assign(RasterTileLayer.prototype, {
 
   disposeTileMesh: function(mesh) {
     mesh.material.dispose();
+  },
+
+  updateTileMesh: function(mesh) {
+    let opacity = mesh.material.opacity;
+    mesh.material.opacity += (1 - opacity) * 0.2;
   },
 
   getTextureForTile: function(tile) {

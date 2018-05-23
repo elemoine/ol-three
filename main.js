@@ -53,7 +53,6 @@ scene.add(osmLayer.rootMesh)
 
 let featureMesh = renderFeature(feature)
 featureMesh.renderOrder = 10
-featureMesh.position.z = 10
 scene.add(featureMesh);
 
 

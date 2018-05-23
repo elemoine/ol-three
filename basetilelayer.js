@@ -53,6 +53,9 @@ Object.assign(BaseTileLayer.prototype, {
   disposeTileMesh: function(mesh) {
   },
 
+  updateTileMesh: function(mesh) {
+  },
+
   update: function(renderer, camera, size) {
     var center = [camera.position.x, camera.position.y];
     let ratio = size[1] / size[0]
@@ -113,16 +116,22 @@ Object.assign(BaseTileLayer.prototype, {
             this.tileMeshes[tileKey].scale.y = tileExtent[3] - tileExtent[1];
           }
 
-          if (this.tileMeshes[tileKey]) this.tileMeshes[tileKey].toDelete = false;
+          if (this.tileMeshes[tileKey]) {
+            this.tileMeshes[tileKey].toDelete = false;
+          }
         }
       }
 
-      // clear unused meshes
+      // loop on meshes
       Object.keys(this.tileMeshes).forEach(key => {
-        if (this.tileMeshes[key] && this.tileMeshes[key].toDelete) {
+        if (!this.tileMeshes[key]) return;
+
+        // remove unused meshes
+        if (this.tileMeshes[key].toDelete) {
           this.disposeTileMesh(this.tileMeshes[key]);
           this.rootMesh.remove(this.tileMeshes[key]);
           this.tileMeshes[key] = undefined;
+          return;
         }
       })
 
@@ -134,6 +143,12 @@ Object.assign(BaseTileLayer.prototype, {
         this.renderedRevision = -1;
       }
     }
+
+    Object.keys(this.tileMeshes).forEach(key => {
+      if (!this.tileMeshes[key]) return;
+
+      this.updateTileMesh(this.tileMeshes[key]);
+    })
   },
 });
 

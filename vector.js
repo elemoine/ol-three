@@ -14,12 +14,14 @@ import {DoubleSide} from 'three/src/Three'
 
 
 
-const material = new MeshBasicMaterial( { color: 0x2222ff, opacity: 0.4, transparent: true } );
+const material = new MeshBasicMaterial( { color: 0x2222ff, opacity: 0.4, transparent: true, depthTest: false } );
 const lineMaterial = new LineBasicMaterial( {
 	color: 0x2222ff,
 	linewidth: 4,
 	linecap: 'round', //ignored by WebGLRenderer
-	linejoin:  'round' //ignored by WebGLRenderer
+	linejoin:  'round', //ignored by WebGLRenderer,
+  transparent: true,
+  depthTest: false
 } );
 
 export function renderFeature(olFeature) {
@@ -48,6 +50,6 @@ function renderPolygon(rings) {
   lineGeom.vertices = rings[0].getCoordinates().map(coords => new Vector3( coords[0], coords[1], 0 ) )
 
   const lineMesh = new Line( lineGeom, lineMaterial );
-  mesh.children.push(lineMesh)
+  mesh.add(lineMesh)
   return mesh;
 }
