@@ -49,7 +49,7 @@ var feature = format.readFeature(GEOM_KML, {
 
 
 const scene = new Scene();
-scene.add(osmLayer.layerMesh)
+scene.add(osmLayer.rootMesh)
 
 let featureMesh = renderFeature(feature)
 featureMesh.renderOrder = 10
@@ -98,6 +98,6 @@ controls.target.y = camera.position.y;
   controls.update();
 
   renderer.clear();
-  osmLayer.render(renderer, camera, mapSize);
+  osmLayer.update(renderer, camera, mapSize);
   renderer.render(scene, camera, undefined);
 })();
