@@ -29,6 +29,10 @@ import BaseTileLayer from './basetilelayer';
 
 var RasterTileLayer = function(olTileSource) {
   BaseTileLayer.call(this, olTileSource);
+
+  this.geometry = new PlaneGeometry(1, 1, 4, 4);
+  const matrix = new Matrix4().makeTranslation(0.5, 0.5, 0);
+  this.geometry.applyMatrix(matrix);
 };
 
 RasterTileLayer.prototype = Object.create(BaseTileLayer.prototype);
@@ -42,13 +46,13 @@ Object.assign(RasterTileLayer.prototype, {
     const material = new MeshBasicMaterial({ color: 0xffffff })
     material.map = this.getTextureForTile(tile);
 
-    const geom = new PlaneGeometry(1, 1, 4, 4);
-    const matrix = new Matrix4().makeTranslation(0.5, 0.5, 0);
-    geom.applyMatrix(matrix);
-
-    const mesh = new Mesh(geom, material);
+    const mesh = new Mesh(this.geometry, material);
 
     return mesh;
+  },
+
+  disposeTileMesh: function(mesh) {
+    mesh.material.dispose();
   },
 
   getTextureForTile: function(tile) {

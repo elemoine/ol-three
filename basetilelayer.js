@@ -50,17 +50,17 @@ Object.assign(BaseTileLayer.prototype, {
     return new Mesh();
   },
 
+  disposeTileMesh: function(mesh) {
+  },
+
   update: function(renderer, camera, size) {
-
-
     var center = [camera.position.x, camera.position.y];
     let ratio = size[1] / size[0]
     let rotation = 0
-    let scale = camera.position.z * Math.tan(camera.fov / 360 * Math.PI * 2)
 
-    // move & scale main mesh to keep facing the camera
-
-    var resolution = scale / size[0];
+    // scale is computed based on camera position
+    let scale = camera.position.z * Math.tan(camera.fov / 360 * Math.PI) * 2
+    var resolution = scale / size[1];
 
     var projection = this.source.getProjection();
     var extent = olextent.getForViewAndSize(center, resolution, rotation, size);
@@ -77,11 +77,17 @@ Object.assign(BaseTileLayer.prototype, {
     var tileExtent
     var tileKey
 
+    // loop on tile range to load missing tiles and generate new meshes
     if (this.renderedTileRange &&
         this.renderedTileRange.equals(tileRange) &&
         this.renderedRevision == this.source.getRevision()) {
         // nothing
     } else {
+      // mark all existing tile meshes as unused (removed later)
+      Object.keys(this.tileMeshes).forEach(key => {
+        if (this.tileMeshes[key]) this.tileMeshes[key].toDelete = true
+      })
+
       var tileRangeSize = tileRange.getSize();
       var origin = tileGrid.getOrigin(z);
       var minX = origin[0] + tileRange.minX * tilePixelSize[0] * tilePixelResolution;
@@ -106,8 +112,19 @@ Object.assign(BaseTileLayer.prototype, {
             this.tileMeshes[tileKey].scale.x = tileExtent[2] - tileExtent[0];
             this.tileMeshes[tileKey].scale.y = tileExtent[3] - tileExtent[1];
           }
+
+          if (this.tileMeshes[tileKey]) this.tileMeshes[tileKey].toDelete = false;
         }
       }
+
+      // clear unused meshes
+      Object.keys(this.tileMeshes).forEach(key => {
+        if (this.tileMeshes[key] && this.tileMeshes[key].toDelete) {
+          this.disposeTileMesh(this.tileMeshes[key]);
+          this.rootMesh.remove(this.tileMeshes[key]);
+          this.tileMeshes[key] = undefined;
+        }
+      })
 
       if (allTilesLoaded) {
         this.renderedTileRange = tileRange;
