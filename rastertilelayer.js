@@ -33,19 +33,18 @@ var RasterTileLayer = function(olTileSource) {
   this.geometry = new PlaneGeometry(1, 1, 4, 4);
   const matrix = new Matrix4().makeTranslation(0.5, 0.5, 0);
   this.geometry.applyMatrix(matrix);
+
+  this.tileTextureCache = {};
 };
 
 RasterTileLayer.prototype = Object.create(BaseTileLayer.prototype);
 
 Object.assign(RasterTileLayer.prototype, {
 
-  generateTileMesh: function(tile) {
-
-    this.tileTextureCache = {};
-
+  generateTileMesh: function(tile, isCached) {
     const material = new MeshBasicMaterial({ color: 0xffffff, transparent: true })
     material.map = this.getTextureForTile(tile);
-    material.opacity = 0;
+    material.opacity = isCached ? 1 : 0;
 
     const mesh = new Mesh(this.geometry, material);
 

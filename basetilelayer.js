@@ -109,7 +109,7 @@ Object.assign(BaseTileLayer.prototype, {
             tile.load();
           } else if (tileState == TileState.LOADED && !this.tileMeshes[tileKey]) {
             tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
-            this.tileMeshes[tileKey] = this.generateTileMesh(tile);
+            this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null);
             this.rootMesh.add(this.tileMeshes[tileKey]);
             this.tileMeshes[tileKey].position.x = tileExtent[0];
             this.tileMeshes[tileKey].position.y = tileExtent[1];
@@ -131,7 +131,7 @@ Object.assign(BaseTileLayer.prototype, {
         if (this.tileMeshes[key].toDelete) {
           this.disposeTileMesh(this.tileMeshes[key]);
           this.rootMesh.remove(this.tileMeshes[key]);
-          this.tileMeshes[key] = undefined;
+          this.tileMeshes[key] = null;
           return;
         }
       })
