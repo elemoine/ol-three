@@ -1,7 +1,9 @@
 // OpenLayers imports
 import OSM from 'ol/source/osm';
+import VectorTile from 'ol/source/vectortile';
 import Feature from 'ol/feature';
-import KML from 'ol/format/kml'
+import KML from 'ol/format/kml';
+import MVT from 'ol/format/mvt';
 
 // Three.js imports
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
@@ -24,6 +26,7 @@ import {Vector3} from 'three/src/math/Vector3';
 // Local imports
 import {TrackballControls} from './TrackballControls.js';
 import RasterTileLayer from './rastertilelayer';
+import VectorTileLayer from './vectortilelayer';
 import { renderFeature } from './vector';
 import {GEOM_KML} from './test_geom'
 
@@ -40,6 +43,16 @@ var mapSize = [mapWidth, mapHeight];
 var osmSource = new OSM();
 var osmLayer = new RasterTileLayer(osmSource);
 
+// vt layer
+var key = 'pk.eyJ1IjoiYWhvY2V2YXIiLCJhIjoiRk1kMWZaSSJ9.E5BkluenyWQMsBLsuByrmg';
+
+var vtSource = new VectorTile({
+  format: new MVT(),
+  url: 'https://{a-d}.tiles.mapbox.com/v4/mapbox.mapbox-streets-v6/' +
+      '{z}/{x}/{y}.vector.pbf?access_token=' + key
+});
+var vtLayer = new VectorTileLayer(vtSource);
+
 // test vector stuff
 var format = new KML();
 var feature = format.readFeature(GEOM_KML, {
@@ -50,11 +63,11 @@ var feature = format.readFeature(GEOM_KML, {
 
 const scene = new Scene();
 scene.add(osmLayer.rootMesh)
+scene.add(vtLayer.rootMesh)
 
 let featureMesh = renderFeature(feature)
 featureMesh.renderOrder = 10
-scene.add(featureMesh);
-
+scene.add.apply(scene, featureMesh);
 
 
 
@@ -92,5 +105,6 @@ controls.target.y = camera.position.y;
 
   renderer.clear();
   osmLayer.update(renderer, controls.target, mapSize, camera);
+  vtLayer.update(renderer, controls.target, mapSize, camera);
   renderer.render(scene, camera, undefined);
 })();

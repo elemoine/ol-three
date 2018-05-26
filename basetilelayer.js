@@ -3,7 +3,8 @@ import olextent from 'ol/extent';
 import olmath from 'ol/math';
 import olproj from 'ol/proj';
 import olsize from 'ol/size';
-import TileState from 'ol/tilestate'
+import TileState from 'ol/tilestate';
+import Units from 'ol/proj/units';
 
 // Three.js imports
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
@@ -63,7 +64,7 @@ Object.assign(BaseTileLayer.prototype, {
 
     // scale is computed based on camera position
     let dist = target.distanceTo(camera.position);
-    let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2 * 1.5
+    let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2
     var resolution = scale / size[1];
 
     var projection = this.source.getProjection();
@@ -102,19 +103,39 @@ Object.assign(BaseTileLayer.prototype, {
       for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
         for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
           tile = this.source.getTile(z, x, y, pixelRatio, projection);
-          tileState = tile.getState();
           tileKey = tile.getKey()
-          if (tileState != TileState.LOADED) {
+
+          if (tile.getState() != TileState.LOADED) {
             allTilesLoaded = false;
             tile.load();
-          } else if (tileState == TileState.LOADED && !this.tileMeshes[tileKey]) {
+          } else if (tile.getState() == TileState.LOADED && !this.tileMeshes[tileKey]) {
+            // reproject source tiles
+            tile.tileKeys && tile.tileKeys.forEach(tileKey => {
+              const sourceTile = tile.getTile(tileKey);
+              const tileProjection = sourceTile.getProjection();
+              var sourceTileCoord = sourceTile.tileCoord;
+              var sourceTileExtent = tileGrid.getTileCoordExtent(sourceTileCoord);
+    
+              if (olproj.equivalent(projection, tileProjection)) {
+                return;
+              }
+
+              // handle coords in tile-pixels (ie Mapbox Vector Tiles)
+              if (tileProjection.getUnits() == Units.TILE_PIXELS) {
+                tileProjection.setWorldExtent(sourceTileExtent);
+                tileProjection.setExtent(sourceTile.getExtent());
+              }
+            });
+
             tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
-            this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null);
+            this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null, projection, tileExtent);
             this.rootMesh.add(this.tileMeshes[tileKey]);
-            this.tileMeshes[tileKey].position.x = tileExtent[0];
-            this.tileMeshes[tileKey].position.y = tileExtent[1];
-            this.tileMeshes[tileKey].scale.x = tileExtent[2] - tileExtent[0];
-            this.tileMeshes[tileKey].scale.y = tileExtent[3] - tileExtent[1];
+
+            // change tile projection (so that it does not change again)
+            tile.tileKeys && tile.tileKeys.forEach(tileKey => {
+              const sourceTile = tile.getTile(tileKey);
+              sourceTile.setProjection(projection);
+            });
           }
 
           if (this.tileMeshes[tileKey]) {

@@ -41,12 +41,17 @@ RasterTileLayer.prototype = Object.create(BaseTileLayer.prototype);
 
 Object.assign(RasterTileLayer.prototype, {
 
-  generateTileMesh: function(tile, isCached) {
+  generateTileMesh: function(tile, isCached, projection, tileExtent) {
     const material = new MeshBasicMaterial({ color: 0xffffff, transparent: true })
     material.map = this.getTextureForTile(tile);
     material.opacity = isCached ? 1 : 0;
 
     const mesh = new Mesh(this.geometry, material);
+
+    mesh.position.x = tileExtent[0];
+    mesh.position.y = tileExtent[1];
+    mesh.scale.x = tileExtent[2] - tileExtent[0];
+    mesh.scale.y = tileExtent[3] - tileExtent[1];
 
     return mesh;
   },

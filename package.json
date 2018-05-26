@@ -15,7 +15,7 @@
     "webpack-serve": "^0.2.0"
   },
   "dependencies": {
-    "ol": "^4.2.0",
+    "ol": "^4.6.5",
     "three": "^0.91.0"
   }
 }
