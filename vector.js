@@ -73,7 +73,7 @@ function renderPolygonGeometry(olGeom) {
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
   const coordReduce = (acc, curr, i, array) => {
-    if ((i - 1) % stride === 0) {
+    if ((i + 1) % stride === 0) {
       acc.push(new Vector3(array[i - stride + 1], array[i - stride + 2], stride > 2 ? array[i - stride + 3] : 0));
     }
     return acc;
