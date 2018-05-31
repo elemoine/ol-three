@@ -42,16 +42,17 @@ export function renderFeature(olFeature, proj1, proj2) {
   // big switch to handle everything
   switch (olGeom.getType()) {
     case GeometryType.LINE_STRING:
-      // console.log('line')
+    case GeometryType.MULTI_LINE_STRING:
+      return renderLinestringGeometry(olGeom);
       break;
     case GeometryType.LINEAR_RING:
-      // console.log('linear ring')
+      console.log('linear ring')
       break;
     case GeometryType.MULTI_POLYGON:
       // console.log('multi')
       break;
     case GeometryType.GEOMETRY_COLLECTION:
-      // console.log('collection')
+      console.log('collection')
       break;
     case GeometryType.CIRCLE:
       // console.log('circle')
@@ -61,15 +62,13 @@ export function renderFeature(olFeature, proj1, proj2) {
       break;
     case GeometryType.POLYGON:
       // console.log('poly')
-      return renderPolygonGeometry(olGeom, proj1, proj2);
+      return renderPolygonGeometry(olGeom);
       break;
-
   }
 }
 
 // returns an array of meshes
-// TODO: normalize coord stride (ie add z if missing)
-function renderPolygonGeometry(olGeom, proj1, proj2) {
+function renderPolygonGeometry(olGeom) {
 
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
@@ -79,13 +78,6 @@ function renderPolygonGeometry(olGeom, proj1, proj2) {
     }
     return acc;
   }
-
-  // let reproject = false;
-  // let transformMap
-  // if (proj1 && proj2 && !olproj.equivalent(proj1, proj2)) {
-  //   reproject = true
-  //   transformMap = coords => olproj.transform([coords.x, coords.y], proj1, proj2);
-  // }
 
   const flatCoordinates = olGeom.getFlatCoordinates();
 
@@ -104,20 +96,16 @@ function renderPolygonGeometry(olGeom, proj1, proj2) {
     const geom = new ShapeBufferGeometry(shape);
     const mesh = new Mesh(geom, material)
 
-    // outer ring stroke
-    var lineGeom = new BufferGeometry().setFromPoints(outerRing);
-    const lineMesh = new Line(lineGeom, lineMaterial);
-    mesh.add(lineMesh)
+    // // outer ring stroke
+    // var lineGeom = new BufferGeometry().setFromPoints(outerRing);
+    // const lineMesh = new Line(lineGeom, lineMaterial);
+    // mesh.add(lineMesh)
 
-    // holes stroke
-    holes.forEach(hole => {
-      var holeGeom = new BufferGeometry().setFromPoints(hole.getPoints());
-      mesh.add(new Line(holeGeom, lineMaterial))
-      // const holeShape = new Shape(hole.getPoints());
-      // const holeGeom = new ShapeBufferGeometry(holeShape);
-      // const holeMesh = new Mesh(holeGeom, holeMaterial)
-      // mesh.add(holeMesh)
-    });
+    // // holes stroke
+    // holes.forEach(hole => {
+    //   var holeGeom = new BufferGeometry().setFromPoints(hole.getPoints());
+    //   mesh.add(new Line(holeGeom, lineMaterial))
+    // });
 
     meshes.push(mesh);
   }
@@ -131,9 +119,6 @@ function renderPolygonGeometry(olGeom, proj1, proj2) {
 
     ring = flatCoordinates.slice(i === 0 ? 0 : ends[i - 1], ends[i]).reduce(coordReduce, [])
 
-    // if (reproject) ring = ring.map(transformMap)
-    // const outerRing = flatCoordinates.reduce(coordReduce, []);
-
     // this is an outer ring: generate the previous polygon and initiate new one
     if (ShapeUtils.isClockWise(ring)) {
       if (outerRing) createMesh();
@@ -141,11 +126,8 @@ function renderPolygonGeometry(olGeom, proj1, proj2) {
       holes = [];
     }
 
-    // console.log('outerRing clockwise? ' + ShapeUtils.isClockWise(outerRing));
-
     // this is an inner ring (hole)
     else if (outerRing) {
-  // console.log('hole ring clockwise? ' + ShapeUtils.isClockWise(holePoints));
       hole = new Path(ring);
       holes.push(hole);
     }
@@ -153,6 +135,51 @@ function renderPolygonGeometry(olGeom, proj1, proj2) {
 
   // generate the last pending polygon
   if (outerRing) createMesh();
+
+  return meshes;
+}
+
+// returns an array of meshes
+function renderLinestringGeometry(olGeom) {
+
+  const ends = olGeom.getEnds();
+  const stride = olGeom.getStride();
+  const coordReduce = (acc, curr, i, array) => {
+    if ((i - 1) % stride === 0) {
+      acc.push(new Vector3(array[i - stride + 1], array[i - stride + 2], stride > 2 ? array[i - stride + 3] : 0));
+    }
+    return acc;
+  }
+
+  const flatCoordinates = olGeom.getFlatCoordinates();
+
+  const meshes = [];
+
+  if (ends.length === 0) {
+    return null
+  }
+
+  let line, hole, holes, i;
+
+  // generate a new mesh from an outer ring & holes
+  const createMesh = () => {
+    var lineGeom = new BufferGeometry().setFromPoints(line);
+    const lineMesh = new Line(lineGeom, lineMaterial);
+    meshes.push(lineMesh);
+  }
+
+  // loop on ends: create a new polygon with holes everytime
+  // the ring is CW
+  for (let i = 0; i < ends.length; i++) {
+    if (ends[i] === ends[i - 1]) {
+      continue;
+    }
+
+    line = flatCoordinates.slice(i === 0 ? 0 : ends[i - 1], ends[i]).reduce(coordReduce, [])
+    createMesh();
+  }
+
+  createMesh();
 
   return meshes;
 }

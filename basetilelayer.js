@@ -67,6 +67,9 @@ Object.assign(BaseTileLayer.prototype, {
     let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2
     var resolution = scale / size[1];
 
+    // TEMP WAITING FOR PERF IMPROVEMENT
+    resolution *= 3
+
     var projection = this.source.getProjection();
     var extent = olextent.getForViewAndSize(center, resolution, rotation, size);
     var tileGrid = this.source.getTileGrid();
@@ -109,16 +112,12 @@ Object.assign(BaseTileLayer.prototype, {
             allTilesLoaded = false;
             tile.load();
           } else if (tile.getState() == TileState.LOADED && !this.tileMeshes[tileKey]) {
-            // reproject source tiles
+            // handle tiles in tile-pixel coords
             tile.tileKeys && tile.tileKeys.forEach(tileKey => {
               const sourceTile = tile.getTile(tileKey);
               const tileProjection = sourceTile.getProjection();
               var sourceTileCoord = sourceTile.tileCoord;
               var sourceTileExtent = tileGrid.getTileCoordExtent(sourceTileCoord);
-    
-              if (olproj.equivalent(projection, tileProjection)) {
-                return;
-              }
 
               // handle coords in tile-pixels (ie Mapbox Vector Tiles)
               if (tileProjection.getUnits() == Units.TILE_PIXELS) {
@@ -131,10 +130,12 @@ Object.assign(BaseTileLayer.prototype, {
             this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null, projection, tileExtent);
             this.rootMesh.add(this.tileMeshes[tileKey]);
 
-            // change tile projection (so that it does not change again)
+            // change tile projection (as tile geoms should have been projected by now)
             tile.tileKeys && tile.tileKeys.forEach(tileKey => {
               const sourceTile = tile.getTile(tileKey);
-              sourceTile.setProjection(projection);
+              if (olproj.equivalent(projection, sourceTile.getProjection())) {
+                sourceTile.setProjection(projection);
+              }
             });
           }
 
