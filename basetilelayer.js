@@ -62,7 +62,7 @@ Object.assign(BaseTileLayer.prototype, {
     var resolution = scale / size[1];
 
     // TEMP WAITING FOR PERF IMPROVEMENT
-    resolution *= 3
+    // resolution *= 3
 
     var projection = this.source.getProjection();
     var extent = olextent.getForViewAndSize(center, resolution, rotation, size);
