@@ -20,12 +20,6 @@ import {Scene} from 'three/src/scenes/Scene';
 import {Texture} from 'three/src/textures/Texture';
 import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
 
-// local imports
-import tileVS from './tileVS.glsl'
-import tileFS from './tileFS.glsl'
-import mapVS from './mapVS.glsl'
-import mapFS from './mapFS.glsl'
-
 // A tile layer simply generates meshes based on the current view
 // Implementations will have to redefine the generateTileMesh method
 // All tile meshes must have this.rootMesh as parent
@@ -133,7 +127,7 @@ Object.assign(BaseTileLayer.prototype, {
             // change tile projection (as tile geoms should have been projected by now)
             tile.tileKeys && tile.tileKeys.forEach(tileKey => {
               const sourceTile = tile.getTile(tileKey);
-              if (olproj.equivalent(projection, sourceTile.getProjection())) {
+              if (!olproj.equivalent(projection, sourceTile.getProjection())) {
                 sourceTile.setProjection(projection);
               }
             });
