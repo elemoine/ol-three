@@ -9,7 +9,7 @@ import TileState from 'ol/tilestate';
 import {Mesh} from 'three/src/objects/Mesh';
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
 import {Float32BufferAttribute} from 'three/src/core/BufferAttribute';
-import {Line} from 'three/src/objects/Line';
+import {LineSegments} from 'three/src/objects/LineSegments';
 
 import BaseTileLayer from './basetilelayer';
 
@@ -55,22 +55,11 @@ Object.assign(VectorTileLayer.prototype, {
 
     const rootMesh = new Mesh(geom, polygonMaterial);
 
-    let lineGeom, lineMesh, linePositions, lineColors;
-    let lineArrays;
-    let i, l;
-    for (let i = 0, l = arrays.lineEnds.length; i < l; i++) {
-      lineGeom = new BufferGeometry();
-      linePositions = arrays.linePositions.slice(
-        i === 0 ? 0 : arrays.lineEnds[i - 1] * 3,
-        arrays.lineEnds[i] * 3);
-      lineColors = arrays.lineColors.slice(
-        i === 0 ? 0 : arrays.lineEnds[i - 1] * 3,
-        arrays.lineEnds[i] * 3);
-      lineGeom.addAttribute('position', new Float32BufferAttribute(linePositions, 3));
-      lineGeom.addAttribute('color', new Float32BufferAttribute(lineColors, 4));
-      lineMesh = new Line(lineGeom, lineMaterial);
-      rootMesh.add(lineMesh);
-    }
+    // generate line mesh
+    const lineGeom = new BufferGeometry();
+    lineGeom.addAttribute('position', new Float32BufferAttribute(arrays.linePositions, 3));
+    lineGeom.addAttribute('color', new Float32BufferAttribute(arrays.lineColors, 4));
+    rootMesh.add(new LineSegments(lineGeom, lineMaterial));
 
     return rootMesh;
   },

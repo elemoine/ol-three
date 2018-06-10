@@ -108,20 +108,26 @@ function renderPolygonGeometry(olGeom, olStyle, arrays) {
       arrays.positions && arrays.positions.push(outerRing[i].x, outerRing[i].y, 0);
       arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
       arrays.uvs && arrays.uvs.push(outerRing[i].x, outerRing[i].y); // world uvs
-      // arrays.linePositions && arrays.linePositions.push(outerRing[i].x, outerRing[i].y, 0);
-      // arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+      arrays.linePositions && arrays.linePositions.push(
+        outerRing[i].x, outerRing[i].y, 0,
+        outerRing[i+1].x, outerRing[i+1].y, 0);
+      arrays.lineColors && arrays.lineColors.push(
+        0.2, 0.2, 1, 0.5,
+        0.2, 0.2, 1, 0.5);
     }
-    // arrays.lineEnds && arrays.lineEnds.push(arrays.positions.length / 3);
     for (j = 0; j < holeRings.length; j++) {
       hole = holeRings[j];
       for (i = 0, l = hole.length - 1; i < l; i++) {
         arrays.positions && arrays.positions.push(hole[i].x, hole[i].y, 0);
         arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
         arrays.uvs && arrays.uvs.push(hole[i].x, hole[i].y); // world uvs
-        // arrays.linePositions && arrays.linePositions.push(hole[i].x, hole[i].y, 0);
-        // arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+        arrays.linePositions && arrays.linePositions.push(
+          hole[i].x, hole[i].y, 0,
+          hole[i+1].x, hole[i+1].y, 0);
+        arrays.lineColors && arrays.lineColors.push(
+          0.2, 0.2, 1, 0.5,
+          0.2, 0.2, 1, 0.5);
       }
-      // arrays.lineEnds && arrays.lineEnds.push(arrays.positions.length / 3);
     }
 
     // triangulate shape to add indices
@@ -185,11 +191,14 @@ function renderLinestringGeometry(olGeom, olStyle, arrays) {
   const appendArrays = () => {
     // add vertices & colors to arrays (outer ring and holes)
     let i, l;
-    for (i = 0, l = line.length; i < l; i++) {
-      arrays.linePositions && arrays.linePositions.push(line[i].x, line[i].y, 0);
-      arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+    for (i = 0, l = line.length - 1; i < l; i++) {
+      arrays.linePositions && arrays.linePositions.push(
+        line[i].x, line[i].y, 0,
+        line[i+1].x, line[i+1].y, 0);
+      arrays.lineColors && arrays.lineColors.push(
+        0.2, 0.2, 1, 0.5,
+        0.2, 0.2, 1, 0.5);
     }
-    arrays.lineEnds && arrays.lineEnds.push(arrays.linePositions.length / 3);
   }
 
   // loop on ends: create a new polygon with holes everytime
