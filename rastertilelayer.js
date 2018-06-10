@@ -19,12 +19,6 @@ import {Scene} from 'three/src/scenes/Scene';
 import {Texture} from 'three/src/textures/Texture';
 import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
 
-// local imports
-import tileVS from './tileVS.glsl'
-import tileFS from './tileFS.glsl'
-import mapVS from './mapVS.glsl'
-import mapFS from './mapFS.glsl'
-
 import BaseTileLayer from './basetilelayer';
 
 var RasterTileLayer = function(olTileSource) {

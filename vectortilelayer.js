@@ -6,28 +6,14 @@ import olsize from 'ol/size';
 import TileState from 'ol/tilestate';
 
 // Three.js imports
-import {BufferGeometry} from 'three/src/core/BufferGeometry';
-import {PlaneGeometry} from 'three/src/geometries/PlaneGeometry';
-import {InterleavedBuffer} from 'three/src/core/InterleavedBuffer';
-import {InterleavedBufferAttribute} from 'three/src/core/InterleavedBufferAttribute';
-import {Matrix4} from 'three/src/math/Matrix4';
 import {Mesh} from 'three/src/objects/Mesh';
-import {OrthographicCamera} from 'three/src/cameras/OrthographicCamera';
-import {RawShaderMaterial} from 'three/src/materials/RawShaderMaterial';
-import {MeshBasicMaterial} from 'three/src/materials/MeshBasicMaterial'
-import {Scene} from 'three/src/scenes/Scene';
-import {Texture} from 'three/src/textures/Texture';
-import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
-
-// local imports
-import tileVS from './tileVS.glsl'
-import tileFS from './tileFS.glsl'
-import mapVS from './mapVS.glsl'
-import mapFS from './mapFS.glsl'
+import {BufferGeometry} from 'three/src/core/BufferGeometry';
+import {Float32BufferAttribute} from 'three/src/core/BufferAttribute';
+import {Line} from 'three/src/objects/Line';
 
 import BaseTileLayer from './basetilelayer';
 
-import {renderFeature} from './vector';
+import {renderFeature, polygonMaterial, lineMaterial} from './vector';
 
 
 var VectorTileLayer = function(olTileSource) {
@@ -42,15 +28,51 @@ Object.assign(VectorTileLayer.prototype, {
   generateTileMesh: function(tile, isCached, sourceProj) {
     const mesh = new Mesh();
 
+    // generate arrays for colors, positions
+    const arrays = {
+      positions: [],
+      colors: [],
+      indices: [],
+      linePositions: [],
+      lineColors: [],
+      lineEnds: []
+    };
+
     tile.tileKeys.forEach(tileKey => {
       const features = tile.getTile(tileKey).getFeatures();
       features.forEach(feature => {
-        let m = renderFeature(feature, tile.getTile(tileKey).getProjection(), sourceProj)
-        m && m.length && mesh.add.apply(mesh, m);
+        renderFeature(feature, arrays,
+          tile.getTile(tileKey).getProjection(), sourceProj);
       });
     });
 
-    return mesh;
+    // use arrays to generate a geometry
+    const geom = new BufferGeometry();
+    geom.setIndex(arrays.indices);
+    geom.addAttribute('position', new Float32BufferAttribute(arrays.positions, 3));
+    geom.addAttribute('color', new Float32BufferAttribute(arrays.colors, 4));
+    geom.addAttribute('uv', new Float32BufferAttribute(arrays.uvs, 2));
+
+    const rootMesh = new Mesh(geom, polygonMaterial);
+
+    let lineGeom, lineMesh, linePositions, lineColors;
+    let lineArrays;
+    let i, l;
+    for (let i = 0, l = arrays.lineEnds.length; i < l; i++) {
+      lineGeom = new BufferGeometry();
+      linePositions = arrays.linePositions.slice(
+        i === 0 ? 0 : arrays.lineEnds[i - 1] * 3,
+        arrays.lineEnds[i] * 3);
+      lineColors = arrays.lineColors.slice(
+        i === 0 ? 0 : arrays.lineEnds[i - 1] * 3,
+        arrays.lineEnds[i] * 3);
+      lineGeom.addAttribute('position', new Float32BufferAttribute(linePositions, 3));
+      lineGeom.addAttribute('color', new Float32BufferAttribute(lineColors, 4));
+      lineMesh = new Line(lineGeom, lineMaterial);
+      rootMesh.add(lineMesh);
+    }
+
+    return rootMesh;
   },
 
   disposeTileMesh: function(mesh) {

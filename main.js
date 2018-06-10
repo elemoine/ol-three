@@ -65,9 +65,9 @@ const scene = new Scene();
 scene.add(osmLayer.rootMesh)
 scene.add(vtLayer.rootMesh)
 
-let featureMesh = renderFeature(feature)
-featureMesh.renderOrder = 10
-scene.add.apply(scene, featureMesh);
+// let featureMesh = renderFeature(feature)
+// featureMesh.renderOrder = 10
+// scene.add.apply(scene, featureMesh);
 
 
 

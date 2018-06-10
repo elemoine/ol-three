@@ -13,24 +13,39 @@ import {LineBasicMaterial} from 'three/src/materials/LineBasicMaterial'
 import {Vector2} from 'three/src/math/Vector2';
 import {Vector3} from 'three/src/math/Vector3';
 import {ShapeUtils} from 'three/src/extras/ShapeUtils';
+import {InterleavedBuffer} from 'three/src/core/InterleavedBuffer';
+import {InterleavedBufferAttribute} from 'three/src/core/InterleavedBufferAttribute';
+import {Matrix4} from 'three/src/math/Matrix4';
+import {ShaderMaterial} from 'three/src/materials/ShaderMaterial';
+import {Color} from 'three/src/math/Color';
 
 import {DoubleSide} from 'three/src/Three'
 
+import polygonVS from './polygonVS.glsl' 
+import polygonFS from './polygonFS.glsl'
 
 
-const material = new MeshBasicMaterial( { color: 0x2222ff, opacity: 0.4, transparent: true, depthTest: false } );
-const lineMaterial = new LineBasicMaterial( {
-	color: 0x2222ff,
-	linewidth: 4,
-	linecap: 'round', //ignored by WebGLRenderer
-	linejoin:  'round', //ignored by WebGLRenderer,
+
+// const material = new MeshBasicMaterial( { color: 0x2222ff, opacity: 0.4, transparent: true, depthTest: false } );
+export const polygonMaterial = new ShaderMaterial({ 
+  uniforms: {
+  },
+  vertexShader: polygonVS, 
+  fragmentShader: polygonFS,
   transparent: true,
   depthTest: false
-} );
+});
+
+export const lineMaterial = new LineBasicMaterial( {
+	color: 0x2222ff,
+	linewidth: 4,
+  transparent: true,
+  depthTest: false
+});
 
 const holeMaterial = new MeshBasicMaterial( { color: 0xff2222, opacity: 0.4, transparent: true, depthTest: false } );
 
-export function renderFeature(olFeature, proj1, proj2) {
+export function renderFeature(olFeature, arrays, proj1, proj2) {
   const olGeom = olFeature.getGeometry();
 
   if (!olGeom) { return }
@@ -43,33 +58,28 @@ export function renderFeature(olFeature, proj1, proj2) {
   switch (olGeom.getType()) {
     case GeometryType.LINE_STRING:
     case GeometryType.MULTI_LINE_STRING:
-      return renderLinestringGeometry(olGeom);
+      return renderLinestringGeometry(olGeom, null, arrays);
       break;
     case GeometryType.LINEAR_RING:
-      console.log('linear ring')
       break;
     case GeometryType.MULTI_POLYGON:
-      // console.log('multi')
       break;
     case GeometryType.GEOMETRY_COLLECTION:
-      console.log('collection')
       break;
     case GeometryType.CIRCLE:
-      // console.log('circle')
       break;
     case GeometryType.POINT:
-      // console.log('point')
       break;
     case GeometryType.POLYGON:
-      // console.log('poly')
-      return renderPolygonGeometry(olGeom);
+      return renderPolygonGeometry(olGeom, null, arrays);
       break;
   }
 }
 
 // returns an array of meshes
-function renderPolygonGeometry(olGeom) {
-
+// arrays can hold: indices, positions, colors, uvs,
+// linePositions, lineColors, lineEnds
+function renderPolygonGeometry(olGeom, olStyle, arrays) {
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
   const coordReduce = (acc, curr, i, array) => {
@@ -81,33 +91,48 @@ function renderPolygonGeometry(olGeom) {
 
   const flatCoordinates = olGeom.getFlatCoordinates();
 
-  const meshes = [];
-
   if (ends.length === 0) {
     return null
   }
 
-  let ring, outerRing, hole, holes, i;
+  let ring, outerRing, hole, holeRings, i;
 
-  // generate a new mesh from an outer ring & holes
-  const createMesh = () => {
-    const shape = new Shape(outerRing);
-    shape.holes = holes;
-    const geom = new ShapeBufferGeometry(shape);
-    const mesh = new Mesh(geom, material)
+  // appends given arrays by triangulating outer & inner rings
+  const appendArrays = () => {
+    const indexOffset = arrays.positions ? arrays.positions.length / 3 : 0;
 
-    // // outer ring stroke
-    // var lineGeom = new BufferGeometry().setFromPoints(outerRing);
-    // const lineMesh = new Line(lineGeom, lineMaterial);
-    // mesh.add(lineMesh)
+    // add vertices & colors to arrays (outer ring and holes)
+    let i, l;
+    let j, hole;
+    for (i = 0, l = outerRing.length - 1; i < l; i++) {
+      arrays.positions && arrays.positions.push(outerRing[i].x, outerRing[i].y, 0);
+      arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
+      arrays.uvs && arrays.uvs.push(outerRing[i].x, outerRing[i].y); // world uvs
+      // arrays.linePositions && arrays.linePositions.push(outerRing[i].x, outerRing[i].y, 0);
+      // arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+    }
+    // arrays.lineEnds && arrays.lineEnds.push(arrays.positions.length / 3);
+    for (j = 0; j < holeRings.length; j++) {
+      hole = holeRings[j];
+      for (i = 0, l = hole.length - 1; i < l; i++) {
+        arrays.positions && arrays.positions.push(hole[i].x, hole[i].y, 0);
+        arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
+        arrays.uvs && arrays.uvs.push(hole[i].x, hole[i].y); // world uvs
+        // arrays.linePositions && arrays.linePositions.push(hole[i].x, hole[i].y, 0);
+        // arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+      }
+      // arrays.lineEnds && arrays.lineEnds.push(arrays.positions.length / 3);
+    }
 
-    // // holes stroke
-    // holes.forEach(hole => {
-    //   var holeGeom = new BufferGeometry().setFromPoints(hole.getPoints());
-    //   mesh.add(new Line(holeGeom, lineMaterial))
-    // });
-
-    meshes.push(mesh);
+    // triangulate shape to add indices
+    const faces = ShapeUtils.triangulateShape(outerRing, holeRings);
+    for (i = 0, l = faces.length; i < l; i++) {
+      arrays.indices && arrays.indices.push(
+        faces[i][0] + indexOffset,
+        faces[i][1] + indexOffset,
+        faces[i][2] + indexOffset
+      );
+    }
   }
 
   // loop on ends: create a new polygon with holes everytime
@@ -121,27 +146,24 @@ function renderPolygonGeometry(olGeom) {
 
     // this is an outer ring: generate the previous polygon and initiate new one
     if (ShapeUtils.isClockWise(ring)) {
-      if (outerRing) createMesh();
+      if (outerRing) appendArrays();
       outerRing = ring;
-      holes = [];
+      holeRings = [];
     }
 
     // this is an inner ring (hole)
     else if (outerRing) {
-      hole = new Path(ring);
-      holes.push(hole);
+      holeRings.push(ring);
     }
   }
 
   // generate the last pending polygon
-  if (outerRing) createMesh();
-
-  return meshes;
+  if (outerRing) appendArrays();
 }
 
 // returns an array of meshes
-function renderLinestringGeometry(olGeom) {
-
+// arrays can hold: positions, colors
+function renderLinestringGeometry(olGeom, olStyle, arrays) {
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
   const coordReduce = (acc, curr, i, array) => {
@@ -153,8 +175,6 @@ function renderLinestringGeometry(olGeom) {
 
   const flatCoordinates = olGeom.getFlatCoordinates();
 
-  const meshes = [];
-
   if (ends.length === 0) {
     return null
   }
@@ -162,10 +182,14 @@ function renderLinestringGeometry(olGeom) {
   let line, hole, holes, i;
 
   // generate a new mesh from an outer ring & holes
-  const createMesh = () => {
-    var lineGeom = new BufferGeometry().setFromPoints(line);
-    const lineMesh = new Line(lineGeom, lineMaterial);
-    meshes.push(lineMesh);
+  const appendArrays = () => {
+    // add vertices & colors to arrays (outer ring and holes)
+    let i, l;
+    for (i = 0, l = line.length; i < l; i++) {
+      arrays.linePositions && arrays.linePositions.push(line[i].x, line[i].y, 0);
+      arrays.lineColors && arrays.lineColors.push(0.2, 0.2, 1, 0.5);
+    }
+    arrays.lineEnds && arrays.lineEnds.push(arrays.linePositions.length / 3);
   }
 
   // loop on ends: create a new polygon with holes everytime
@@ -176,10 +200,8 @@ function renderLinestringGeometry(olGeom) {
     }
 
     line = flatCoordinates.slice(i === 0 ? 0 : ends[i - 1], ends[i]).reduce(coordReduce, [])
-    createMesh();
+    appendArrays();
   }
 
-  createMesh();
-
-  return meshes;
+  appendArrays();
 }
