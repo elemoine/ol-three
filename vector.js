@@ -1,5 +1,6 @@
 import GeometryType from 'ol/geom/geometrytype';
 import olproj from 'ol/proj';
+import olcolor from 'ol/color';
 
 import {Shape} from 'three/src/extras/core/Shape';
 import {Path} from 'three/src/extras/core/Path';
@@ -58,7 +59,7 @@ export function renderFeature(olFeature, olStyles, arrays, proj1, proj2) {
   switch (olGeom.getType()) {
     case GeometryType.LINE_STRING:
     case GeometryType.MULTI_LINE_STRING:
-      return renderLinestringGeometry(olGeom, null, arrays);
+      return olStyles.forEach(style => renderLinestringGeometry(olGeom, style, arrays));
       break;
     case GeometryType.LINEAR_RING:
       break;
@@ -71,7 +72,7 @@ export function renderFeature(olFeature, olStyles, arrays, proj1, proj2) {
     case GeometryType.POINT:
       break;
     case GeometryType.POLYGON:
-      return renderPolygonGeometry(olGeom, null, arrays);
+      return olStyles.forEach(style => renderPolygonGeometry(olGeom, style, arrays));
       break;
   }
 }
@@ -80,6 +81,8 @@ export function renderFeature(olFeature, olStyles, arrays, proj1, proj2) {
 // arrays can hold: indices, positions, colors, uvs,
 // linePositions, lineColors, lineEnds
 function renderPolygonGeometry(olGeom, olStyle, arrays) {
+  if (!olStyle) { return; }
+
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
   const coordReduce = (acc, curr, i, array) => {
@@ -88,6 +91,7 @@ function renderPolygonGeometry(olGeom, olStyle, arrays) {
     }
     return acc;
   }
+  const colorMap = (c, i) => i < 3 ? c / 255 : c
 
   const flatCoordinates = olGeom.getFlatCoordinates();
 
@@ -96,6 +100,15 @@ function renderPolygonGeometry(olGeom, olStyle, arrays) {
   }
 
   let ring, outerRing, hole, holeRings, i;
+
+  // get parameters from style
+  const fillColor = olStyle.getFill() ?
+    olcolor.asArray(olStyle.getFill().getColor()).map(colorMap) :
+    [0, 0, 0, 0];
+
+  const strokeColor = olStyle.getStroke() ?
+    olcolor.asArray(olStyle.getStroke().getColor()).map(colorMap) :
+    null;
 
   // appends given arrays by triangulating outer & inner rings
   const appendArrays = () => {
@@ -106,27 +119,27 @@ function renderPolygonGeometry(olGeom, olStyle, arrays) {
     let j, hole;
     for (i = 0, l = outerRing.length - 1; i < l; i++) {
       arrays.positions && arrays.positions.push(outerRing[i].x, outerRing[i].y, 0);
-      arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
+      arrays.colors && arrays.colors.push(fillColor[0], fillColor[1], fillColor[2], fillColor[3]);
       arrays.uvs && arrays.uvs.push(outerRing[i].x, outerRing[i].y); // world uvs
-      arrays.linePositions && arrays.linePositions.push(
+      strokeColor && arrays.linePositions && arrays.linePositions.push(
         outerRing[i].x, outerRing[i].y, 0,
         outerRing[i+1].x, outerRing[i+1].y, 0);
-      arrays.lineColors && arrays.lineColors.push(
-        0.2, 0.2, 1, 0.5,
-        0.2, 0.2, 1, 0.5);
+      strokeColor && arrays.lineColors && arrays.lineColors.push(
+        strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3],
+        strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3]);
     }
     for (j = 0; j < holeRings.length; j++) {
       hole = holeRings[j];
       for (i = 0, l = hole.length - 1; i < l; i++) {
         arrays.positions && arrays.positions.push(hole[i].x, hole[i].y, 0);
-        arrays.colors && arrays.colors.push(0.2, 0.2, 1, 0.5);
+        arrays.colors && arrays.colors.push(fillColor[0], fillColor[1], fillColor[2], fillColor[3]);
         arrays.uvs && arrays.uvs.push(hole[i].x, hole[i].y); // world uvs
-        arrays.linePositions && arrays.linePositions.push(
+        strokeColor && arrays.linePositions && arrays.linePositions.push(
           hole[i].x, hole[i].y, 0,
           hole[i+1].x, hole[i+1].y, 0);
-        arrays.lineColors && arrays.lineColors.push(
-          0.2, 0.2, 1, 0.5,
-          0.2, 0.2, 1, 0.5);
+        strokeColor && arrays.lineColors && arrays.lineColors.push(
+          strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3],
+          strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3]);
       }
     }
 
@@ -170,6 +183,8 @@ function renderPolygonGeometry(olGeom, olStyle, arrays) {
 // returns an array of meshes
 // arrays can hold: positions, colors
 function renderLinestringGeometry(olGeom, olStyle, arrays) {
+  if (!olStyle || !olStyle.getStroke()) { return; }
+
   const ends = olGeom.getEnds();
   const stride = olGeom.getStride();
   const coordReduce = (acc, curr, i, array) => {
@@ -178,6 +193,7 @@ function renderLinestringGeometry(olGeom, olStyle, arrays) {
     }
     return acc;
   }
+  const colorMap = (c, i) => c < 3 ? c / 255 : c
 
   const flatCoordinates = olGeom.getFlatCoordinates();
 
@@ -186,6 +202,10 @@ function renderLinestringGeometry(olGeom, olStyle, arrays) {
   }
 
   let line, hole, holes, i;
+
+  const strokeColor = olStyle.getStroke() ?
+    olcolor.asArray(olStyle.getStroke().getColor()).map(colorMap) :
+    null;
 
   // generate a new mesh from an outer ring & holes
   const appendArrays = () => {
@@ -196,8 +216,8 @@ function renderLinestringGeometry(olGeom, olStyle, arrays) {
         line[i].x, line[i].y, 0,
         line[i+1].x, line[i+1].y, 0);
       arrays.lineColors && arrays.lineColors.push(
-        0.2, 0.2, 1, 0.5,
-        0.2, 0.2, 1, 0.5);
+        strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3],
+        strokeColor[0], strokeColor[1], strokeColor[2], strokeColor[3]);
     }
   }
 

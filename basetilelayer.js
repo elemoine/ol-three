@@ -178,11 +178,11 @@ Object.assign(BaseTileLayer.prototype, {
     });
   },
 
-  // TODO
   getStyleFunction() {
-    return function (feature, resolution) {
-      return [];
-    };
+    return this._styleFunction;
+  },
+  setStyleFunction(olStyleFunc) {
+    this._styleFunction = olStyleFunc;
   }
 });
 

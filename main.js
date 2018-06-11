@@ -4,6 +4,11 @@ import VectorTile from 'ol/source/vectortile';
 import Feature from 'ol/feature';
 import KML from 'ol/format/kml';
 import MVT from 'ol/format/mvt';
+import Style from 'ol/style/style';
+import Fill from 'ol/style/fill';
+import Stroke from 'ol/style/stroke';
+import Icon from 'ol/style/icon';
+import Text from 'ol/style/text';
 
 // Three.js imports
 import {BufferGeometry} from 'three/src/core/BufferGeometry';
@@ -31,6 +36,7 @@ import { renderFeature } from './vector';
 import {GEOM_KML} from './test_geom';
 import {addJobToQueue, updateJobQueue} from './jobqueue';
 import {setActiveCamera, setCameraTarget} from './view';
+import {createMapboxStreetsV6Style} from './mapbox-streets-v6-style'
 
 //
 // main
@@ -54,6 +60,7 @@ var vtSource = new VectorTile({
       '{z}/{x}/{y}.vector.pbf?access_token=' + key
 });
 var vtLayer = new VectorTileLayer(vtSource);
+vtLayer.setStyleFunction(createMapboxStreetsV6Style(Style, Fill, Stroke, Icon, Text));
 
 // test vector stuff
 var format = new KML();
@@ -64,7 +71,7 @@ var feature = format.readFeature(GEOM_KML, {
 
 
 const scene = new Scene();
-scene.add(osmLayer.rootMesh)
+// scene.add(osmLayer.rootMesh)
 scene.add(vtLayer.rootMesh)
 
 // let featureMesh = renderFeature(feature)
@@ -77,7 +84,7 @@ scene.add(vtLayer.rootMesh)
 
 var renderer = new WebGLRenderer();
 renderer.setSize(mapWidth, mapHeight);
-renderer.setClearColor(new Color(0x000000));
+renderer.setClearColor(new Color(0xf8f4f0));
 renderer.sortObjects = false;
 mapEl.appendChild(renderer.domElement);
 
