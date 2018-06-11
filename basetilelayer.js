@@ -20,6 +20,8 @@ import {Scene} from 'three/src/scenes/Scene';
 import {Texture} from 'three/src/textures/Texture';
 import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
 
+import {addJobToQueue} from './jobqueue';
+
 // A tile layer simply generates meshes based on the current view
 // Implementations will have to redefine the generateTileMesh method
 // All tile meshes must have this.rootMesh as parent
@@ -61,9 +63,6 @@ Object.assign(BaseTileLayer.prototype, {
     let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2
     var resolution = scale / size[1];
 
-    // TEMP WAITING FOR PERF IMPROVEMENT
-    // resolution *= 3
-
     var projection = this.source.getProjection();
     var extent = olextent.getForViewAndSize(center, resolution, rotation, size);
     var tileGrid = this.source.getTileGrid();
@@ -76,8 +75,6 @@ Object.assign(BaseTileLayer.prototype, {
     var tileRange = tileGrid.getTileRangeForExtentAndZ(extent, z);
 
     var allTilesLoaded = true
-    var tileExtent
-    var tileKey
 
     // loop on tile range to load missing tiles and generate new meshes
     if (this.renderedTileRange &&
@@ -95,12 +92,12 @@ Object.assign(BaseTileLayer.prototype, {
       var minX = origin[0] + tileRange.minX * tilePixelSize[0] * tilePixelResolution;
       var minY = origin[1] + tileRange.minY * tilePixelSize[1] * tilePixelResolution;
 
-      var x, y, tile, texture, tileState, tileExtent;
+      var x, y, texture;
       var geometry, material, mesh, scene, orthographicCamera;
       for (x = tileRange.minX; x <= tileRange.maxX; ++x) {
         for (y = tileRange.minY; y <= tileRange.maxY; ++y) {
-          tile = this.source.getTile(z, x, y, pixelRatio, projection);
-          tileKey = tile.getKey()
+          var tile = this.source.getTile(z, x, y, pixelRatio, projection);
+          var tileKey = tile.getKey()
 
           if (tile.getState() != TileState.LOADED) {
             allTilesLoaded = false;
@@ -120,17 +117,12 @@ Object.assign(BaseTileLayer.prototype, {
               }
             });
 
-            tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
-            this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null, projection, tileExtent);
-            this.rootMesh.add(this.tileMeshes[tileKey]);
-
-            // change tile projection (as tile geoms should have been projected by now)
-            tile.tileKeys && tile.tileKeys.forEach(tileKey => {
-              const sourceTile = tile.getTile(tileKey);
-              if (!olproj.equivalent(projection, sourceTile.getProjection())) {
-                sourceTile.setProjection(projection);
-              }
-            });
+            // mesh generation is added to queue
+            var tileCopy = tile;
+            // uncomment to use job queue
+            // addJobToQueue(function () {
+              this._reprojectTileAndGenerate(tileCopy);
+            // }, this, 1000);
           }
 
           if (this.tileMeshes[tileKey]) {
@@ -167,6 +159,24 @@ Object.assign(BaseTileLayer.prototype, {
       this.updateTileMesh(this.tileMeshes[key]);
     })
   },
+
+  _reprojectTileAndGenerate(tile) {
+    var projection = this.source.getProjection();
+    var tileGrid = this.source.getTileGrid();
+    var tileKey = tile.getKey();
+    var tileExtent = tileGrid.getTileCoordExtent(tile.tileCoord, this.tmpExtent);
+
+    this.tileMeshes[tileKey] = this.generateTileMesh(tile, this.tileMeshes[tileKey] === null, projection, tileExtent);
+    this.rootMesh.add(this.tileMeshes[tileKey]);
+
+    // change tile projection (as tile geoms should have been projected by now)
+    tile.tileKeys && tile.tileKeys.forEach(tileKey => {
+      const sourceTile = tile.getTile(tileKey);
+      if (!olproj.equivalent(projection, sourceTile.getProjection())) {
+        sourceTile.setProjection(projection);
+      }
+    });
+  }
 });
 
 export default BaseTileLayer;

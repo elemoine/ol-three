@@ -28,7 +28,8 @@ import {TrackballControls} from './TrackballControls.js';
 import RasterTileLayer from './rastertilelayer';
 import VectorTileLayer from './vectortilelayer';
 import { renderFeature } from './vector';
-import {GEOM_KML} from './test_geom'
+import {GEOM_KML} from './test_geom';
+import {addJobToQueue, updateJobQueue} from './jobqueue';
 
 //
 // main
@@ -106,5 +107,8 @@ controls.target.y = camera.position.y;
   renderer.clear();
   osmLayer.update(renderer, controls.target, mapSize, camera);
   vtLayer.update(renderer, controls.target, mapSize, camera);
+
+  updateJobQueue();
+
   renderer.render(scene, camera, undefined);
 })();
