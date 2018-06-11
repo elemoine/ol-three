@@ -45,7 +45,7 @@ export const lineMaterial = new LineBasicMaterial( {
 
 const holeMaterial = new MeshBasicMaterial( { color: 0xff2222, opacity: 0.4, transparent: true, depthTest: false } );
 
-export function renderFeature(olFeature, arrays, proj1, proj2) {
+export function renderFeature(olFeature, olStyles, arrays, proj1, proj2) {
   const olGeom = olFeature.getGeometry();
 
   if (!olGeom) { return }

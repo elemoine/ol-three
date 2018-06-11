@@ -21,6 +21,8 @@ import {Texture} from 'three/src/textures/Texture';
 import {WebGLRenderTarget} from 'three/src/renderers/WebGLRenderTarget';
 
 import {addJobToQueue} from './jobqueue';
+import {getResolution, getCameraTarget} from './view';
+import {getMapSize} from './common';
 
 // A tile layer simply generates meshes based on the current view
 // Implementations will have to redefine the generateTileMesh method
@@ -53,15 +55,13 @@ Object.assign(BaseTileLayer.prototype, {
   updateTileMesh: function(mesh) {
   },
 
-  update: function(renderer, target, size, camera) {
+  update: function() {
+    var target = getCameraTarget();
+    var size = getMapSize();
     var center = [target.x, target.y];
     let ratio = size[1] / size[0]
     let rotation = 0
-
-    // scale is computed based on camera position
-    let dist = target.distanceTo(camera.position);
-    let scale = dist * Math.tan(camera.fov / 360 * Math.PI) * 2
-    var resolution = scale / size[1];
+    let resolution = getResolution();
 
     var projection = this.source.getProjection();
     var extent = olextent.getForViewAndSize(center, resolution, rotation, size);
@@ -176,6 +176,13 @@ Object.assign(BaseTileLayer.prototype, {
         sourceTile.setProjection(projection);
       }
     });
+  },
+
+  // TODO
+  getStyleFunction() {
+    return function (feature, resolution) {
+      return [];
+    };
   }
 });
 

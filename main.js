@@ -30,6 +30,7 @@ import VectorTileLayer from './vectortilelayer';
 import { renderFeature } from './vector';
 import {GEOM_KML} from './test_geom';
 import {addJobToQueue, updateJobQueue} from './jobqueue';
+import {setActiveCamera, setCameraTarget} from './view';
 
 //
 // main
@@ -89,6 +90,7 @@ var camera = new PerspectiveCamera(50, aspectRatio, 1, 100000000);
 camera.position.z = 500000;
 camera.position.x = initialCenter[0];
 camera.position.y = initialCenter[1];
+setActiveCamera(camera);
 
 var controls = new TrackballControls(camera, mapEl);
 // controls.noRotate = true;
@@ -99,14 +101,15 @@ controls.staticMoving = false;
 controls.target.z = 0;
 controls.target.x = camera.position.x;
 controls.target.y = camera.position.y;
+setCameraTarget(controls.target);
 
 (function animate() {
   requestAnimationFrame(animate);
   controls.update();
 
   renderer.clear();
-  osmLayer.update(renderer, controls.target, mapSize, camera);
-  vtLayer.update(renderer, controls.target, mapSize, camera);
+  osmLayer.update();
+  vtLayer.update();
 
   updateJobQueue();
 

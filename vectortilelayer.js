@@ -14,6 +14,7 @@ import {LineSegments} from 'three/src/objects/LineSegments';
 import BaseTileLayer from './basetilelayer';
 
 import {renderFeature, polygonMaterial, lineMaterial} from './vector';
+import {getResolution} from './view';
 
 
 var VectorTileLayer = function(olTileSource) {
@@ -38,10 +39,13 @@ Object.assign(VectorTileLayer.prototype, {
       lineEnds: []
     };
 
+    const styleFunction = this.getStyleFunction();
+
     tile.tileKeys.forEach(tileKey => {
       const features = tile.getTile(tileKey).getFeatures();
       features.forEach(feature => {
-        renderFeature(feature, arrays,
+        const styles = styleFunction(feature, getResolution());
+        styles && renderFeature(feature, styles, arrays,
           tile.getTile(tileKey).getProjection(), sourceProj);
       });
     });
