@@ -39,7 +39,7 @@ export const polygonMaterial = new ShaderMaterial({
 
 export const lineMaterial = new LineBasicMaterial( {
 	color: 0x2222ff,
-	linewidth: 4,
+	linewidth: 1,
   transparent: true,
   depthTest: false
 });
